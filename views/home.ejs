@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title>Home</title>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.1.3/socket.io.js" integrity="sha512-2RDFHqfLZW8IhPRvQYmK9bTLfj/hddxGXQAred2wNZGkrKQkLGj8RCkXfRJPHlDerdHHIzTFaahq4s/P4V6Qig==" crossorigin="anonymous"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" integrity="sha512-iBBXm8fW90+nuLcSKlbmrPcLa0OT92xO1BIsZ+ywDWZCvqsWgccV3gFoRBv0z+8dLJgyAHIhR35VZc2oM/gI1w==" crossorigin="anonymous" />
+  </head>
+  <style media="screen">
+    .listOfReceivers {
+      width: 12em;
+      height: 10em;
+      float: left;
+    }
+    .receiverChild {
+      max-width: 8em;
+      text-align: center;
+    }
+    .receiverChild:hover {
+      cursor: pointer;
+      border: 1px dotted black;
+    }
+    .display-whole-chat {
+      float: left;
+      width: 70%;
+      height: 30em;
+      text-align: center;
+      padding: 1em;
+      overflow-y: auto;
+    }
+    .receiveDiv {
+      width: 80%;
+      min-height: 4em;
+      margin: 1em;
+      padding: 1em;
+      display: inline-block;
+      float: right;
+      text-align: right;
+      background-color: grey;
+      opacity: 0.8;
+    }
+    .senderDiv {
+      width: 80%;
+      min-height: 4em;
+      margin: 1em;
+      padding: 1em;
+      display: inline-block;
+      float: left;
+      text-align: left;
+      background-color: green;
+      opacity: 0.9
+    }
+    #searchBox {
+      width: 40%;
+      padding: 1em;
+      height: 5%;
+      border-radius: 2em;
+    }
+    #searchBox:focus {
+      outline: none;
+    }
+    #chatmessage {
+      width: 60%;
+      padding: 1em;
+      height: 5%;
+      border-radius: 2em;
+      border: 0.2px solid black;
+      margin: 1em;
+      margin-left: 10em;
+    }
+    #chatmessage:focus {
+      outline: none;
+      border: 1px solid black;
+    }
+  </style>
+  <body>
+    <!--<button type="button" onclick="sendMessage();" name="button">send</button><br>--> <br>
+    <center><input type="text" id="searchBox" list="searchDataList" onkeyup="searching();" placeholder="search for user" name="searchusername" value="">
+    <datalist id="searchDataList"></datalist><i class="fa fa-search fa-2x" aria-hidden="true"></i>
+    <!--<button type="button" onclick="searchUser();" name="button">search</button>--></center>
+    <div class="">
+      <br>
+    </div>
+    <script type="text/javascript" defer>
+
+      var socket = io()
+      let users = []
+      var name = '<%= name %>';
+      console.log('name: ',name);
+      var s = '<%= users %>'
+      s = s.replaceAll('&#34;','')
+      users = s.split('},')
+      users[0] = users[0].replaceAll('[','')
+      users[users.length-1] = users[users.length-1].replaceAll(']','')
+      var i = 0;
+      var finalUsers = []
+      for(i=0;i<users.length;i++) {
+        users[i] = users[i].replaceAll('{','')
+        users[i] = users[i].replaceAll('}','')
+        var tmp = {}
+        var arr = []
+        arr = users[i].split(',')
+        var j = 0;
+        for(j=1;j<arr.length;j++) {
+          var key = arr[j].split(':')[0]
+          var value = arr[j].split(':')[1]
+          tmp[key] = value;
+        }
+        finalUsers.push(tmp)
+      }
+      console.log('finalUsers: ',finalUsers);
+      var valueOfUsername = '';
+      var dataList = document.getElementById('searchDataList');
+
+
+
+      function searching() {
+        var searchBox = document.getElementById('searchBox');
+        var i = 0;
+        var length_searcbox = searchBox.value.length;
+        let listSearch = [];
+        dataList.innerHTML = ''
+        for(i=0;i<finalUsers.length;i++) {
+          valueOfUsername = finalUsers[i].username;
+          valueOfUsername = valueOfUsername.substring(0,length_searcbox)
+          console.log(name);
+          if(valueOfUsername == searchBox.value && finalUsers[i].username != name) {
+            listSearch.push(finalUsers[i].username)
+            var option = document.createElement('option');
+            option.value = finalUsers[i].username;
+            dataList.appendChild(option)
+          }
+        }
+      }
+
+      function searchUser() {
+
+        var searchBoxN = document.getElementById('searchBox');
+        searchBoxVal = searchBoxN.value;
+        var i = 0;
+        console.log(searchBoxVal);
+        var url = '';
+        url = 'http://localhost:8090/user?u='+searchBoxVal+ '&e=';
+        for(i=0;i<finalUsers.length;i++) {
+          if(searchBoxVal == finalUsers[i].username) {
+            var k = makeid(7);
+            var e = CryptoJS.AES.encrypt(finalUsers[i].email,k).toString()
+            k = CryptoJS.AES.encrypt(k,'<%= email %>').toString()
+            url += e + '&k=' + k;
+            window.location = url;
+          }
+        }
+      }
+
+      function makeid(length) {
+        var result           = '';
+        var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        var charactersLength = characters.length;
+        for ( var i = 0; i < length; i++ ) {
+          result += characters.charAt(Math.floor(Math.random() * charactersLength));
+        }
+        return result;
+     }
+
+     socket.emit('get all chats',{
+       room: '<%= room %>'
+     });
+     let dataReceived = []
+     let u = ''
+     let senderDiv = ''
+     let displayWholeChat = ''
+     socket.on('receive all chats',(data) => {
+       console.log('receive all chats data: ',data);
+       dataReceived = data;
+       let i = 0
+       for(i=0;i<data[0].messages.length;i++) {
+          if(data[0].messages[i].receiver == '<%= name %>') {
+            continue;
+          }
+          else {
+            if($('#'+data[0].messages[i].receiver).length) {
+              continue;
+            }
+            else {
+              var receiver = document.createElement('div');
+              receiver.setAttribute('id',data[0].messages[i].receiver)
+              receiver.setAttribute('class','receiverChild')
+              receiver.innerHTML = data[0].messages[i].receiver;
+              receiver.style.margin = '0.5em'
+              receiver.addEventListener('click',(e) => {
+                //alert('clicked on '+e.toElement.innerHTML)
+                document.getElementById('chatmessage').type = 'text'
+                if(senderDiv != '') {
+                  displayWholeChat.appendChild(senderDiv)
+                }
+                else {
+                  console.log('senderdiv after click: ',senderDiv);
+                }
+                var displayWholeChat = document.getElementsByClassName('display-whole-chat')[0];
+                displayWholeChat.innerHTML = e.toElement.innerHTML;
+                displayWholeChat.style.border = '1px dotted black';
+                getallChats(e.toElement.innerHTML)
+                u = e.toElement.innerHTML;
+              })
+              var listOfReceivers = document.getElementsByClassName('listOfReceivers')[0];
+              listOfReceivers.appendChild(receiver);
+            }
+          }
+       }
+     })
+
+
+     function getallChats(receiver) {
+       i = 0;
+       var displayWholeChat = document.getElementsByClassName('display-whole-chat')[0];
+       for(i=0;i<dataReceived[0].messages.length;i++) {
+         if(dataReceived[0].messages[i].receiver == receiver) {
+           var receiveDiv = document.createElement('div');
+           receiveDiv.setAttribute('class','receiveDiv');
+           console.log(dataReceived[0].messages[i].time);
+           var d = new Date(dataReceived[0].messages[i].time);
+           d = d.toDateString()
+           console.log('d: ',d);
+           receiveDiv.innerHTML = CryptoJS.AES.decrypt(dataReceived[0].messages[i].message,dataReceived[0].messages[i].k).toString(CryptoJS.enc.Utf8) + ' <br><small> '+d+'</small>';
+           displayWholeChat.appendChild(receiveDiv);
+         }
+         else if(dataReceived[0].messages[i].sender == receiver) {
+           var senderDiv = document.createElement('div');
+           senderDiv.setAttribute('class','senderDiv');
+           var d = new Date(dataReceived[0].messages[i].time);
+           d = d.toDateString()
+           console.log('d: ',d);
+           senderDiv.innerHTML = CryptoJS.AES.decrypt(dataReceived[0].messages[i].message,dataReceived[0].messages[i].k).toString(CryptoJS.enc.Utf8) + ' <br><small> '+d+'</small>';
+           displayWholeChat.appendChild(senderDiv)
+         }
+       }
+       displayWholeChat.scrollTop = displayWholeChat.scrollHeight;
+     }
+
+     let recievedData = []
+     socket.on('receive message',(data) => {
+       //alert('got data')
+       //console.log(data);
+       //alert('u: ',u)
+       if(u == ''){
+         alert('Notification: Received a message from '+data.sender)
+         if(data.header == true) {
+           //var chatBox = document.getElementsByClassName('chatBox')[0]
+           //chatBox.innerHTML += '<br><span style="float:left">'+CryptoJS.AES.decrypt(data.message,data.k).toString(CryptoJS.enc.Utf8)+'</span> <br>';
+           displayWholeChat = document.getElementsByClassName('display-whole-chat')[0];
+           senderDiv = document.createElement('div');
+           senderDiv.setAttribute('class','senderDiv');
+           var d = new Date();
+           d = d.toDateString()
+           console.log('d: ',d);
+           senderDiv.innerHTML = CryptoJS.AES.decrypt(data.message,data.k).toString(CryptoJS.enc.Utf8) + ' <br><small> '+d+'</small>';
+           //displayWholeChat.appendChild(senderDiv)
+           //displayWholeChat.scrollTop = displayWholeChat.scrollHeight;
+         }
+         else {
+           var popup = document.createElement('div');
+           popup.style.backgroundColor = 'black';
+           popup.style.color = 'white';
+           popup.style.width = '5em'
+           popup.style.height = '5em';
+           popup.setAttribute('id','popup');
+           popup.innerHTML = `Confirm the req? <br><input type="radio" value="yes" name="confirmReq" id="yes"> <label for='yes'>Yes</label> <br><input type="radio" value="No" name="confirmReq" id="No"> <label for='No'>No</label><input type='submit' onclick='callMe();' value='send response to req' id= 'sendReq'> `
+           document.body.appendChild(popup);
+         }
+         return;
+       }
+       recievedData = data;
+       //var k = CryptoJS.AES.decrypt(data.k,data.yourE).toString(CryptoJS.enc.Utf8)
+       console.log('message: ',CryptoJS.AES.decrypt(data.message,data.k).toString(CryptoJS.enc.Utf8));
+       if(data.header == true) {
+         //var chatBox = document.getElementsByClassName('chatBox')[0]
+         //chatBox.innerHTML += '<br><span style="float:left">'+CryptoJS.AES.decrypt(data.message,data.k).toString(CryptoJS.enc.Utf8)+'</span> <br>';
+         var displayWholeChat = document.getElementsByClassName('display-whole-chat')[0];
+         var senderDiv = document.createElement('div');
+         senderDiv.setAttribute('class','senderDiv');
+         var d = new Date();
+         d = d.toDateString()
+         console.log('d: ',d);
+         senderDiv.innerHTML = CryptoJS.AES.decrypt(data.message,data.k).toString(CryptoJS.enc.Utf8) + ' <br><small> '+d+'</small>';
+         displayWholeChat.appendChild(senderDiv)
+         displayWholeChat.scrollTop = displayWholeChat.scrollHeight;
+       }
+       else {
+         var popup = document.createElement('div');
+         popup.style.backgroundColor = 'black';
+         popup.style.color = 'white';
+         popup.style.width = '5em'
+         popup.style.height = '5em';
+         popup.setAttribute('id','popup');
+         popup.innerHTML = `Confirm the req? <br><input type="radio" value="yes" name="confirmReq" id="yes"> <label for='yes'>Yes</label> <br><input type="radio" value="No" name="confirmReq" id="No"> <label for='No'>No</label><input type='submit' onclick='callMe();' value='send response to req' id= 'sendReq'> `
+         document.body.appendChild(popup);
+       }
+     })
+
+     socket.emit('join-room',{
+       room: '<%= room %>'
+     })
+     function sendMessage(e) {
+       var chatmessage = document.getElementById('chatmessage');
+       chatmessage = chatmessage.value;
+       if(u == '') {
+         alert('please select a username..')
+         return;
+       }
+       let i = 0;
+       for(i=0;i<finalUsers.length;i++) {
+         if(u==finalUsers[i].username) {
+           var k = makeid(7)
+           var e = CryptoJS.AES.encrypt(finalUsers[i].email,k).toString()
+           k = CryptoJS.AES.encrypt(k,'<%= email %>').toString()
+           break;
+         }
+       }
+       console.log('chatmessage::',chatmessage);
+       if('<%= room %>' !== undefined) {
+         socket.emit('send message',{
+           room: '<%= room %>',
+           message: CryptoJS.AES.encrypt(chatmessage,k).toString(),
+           sender: '<%= name %>',
+           receiver: u,
+           e: CryptoJS.AES.decrypt(e,CryptoJS.AES.decrypt(k,'<%= email %>').toString(CryptoJS.enc.Utf8)).toString(CryptoJS.enc.Utf8),
+           k: k,
+           yourE: '<%= email %>'
+         })
+         //var chatBox = document.getElementsByClassName('chatBox')[0]
+         //chatBox.innerHTML += '<br><span style="float:right">'+chatmessage+'</span> <br>';
+         var displayWholeChat = document.getElementsByClassName('display-whole-chat')[0];
+         var receiveDiv = document.createElement('div');
+         receiveDiv.setAttribute('class','receiveDiv');
+         /*console.log(dataReceived[0].messages[i].time);
+         var d = new Date(dataReceived[0].messages[i].time);
+         d = d.toDateString()
+         console.log('d: ',d);*/
+         receiveDiv.innerHTML = chatmessage + ' <br><small> '+new Date().toDateString()+'</small>';
+         displayWholeChat.appendChild(receiveDiv);
+         displayWholeChat.scrollTop = displayWholeChat.scrollHeight;
+         document.getElementById('chatmessage').value = ''
+       }
+       else {
+         alert('please wait! try refreshing..')
+       }
+     }
+
+    </script>
+    <div class="listOfReceivers">
+
+    </div>
+    <div class="display-whole-chat">
+
+    </div>
+    <center><input type="text" id="chatmessage" placeholder="type text to send" name="chatmessage" value=""></center>
+    <script type="text/javascript">
+
+    if(u == '') {
+      document.getElementById('chatmessage').type = 'hidden'
+    }
+    else {
+      document.getElementById('chatmessage').type = 'text'
+    }
+
+    document.getElementById('chatmessage').addEventListener('keyup',(e) => {
+      if(e.keyCode == 13) {
+        sendMessage();
+      }
+    })
+    document.getElementById('searchBox').addEventListener('keyup',(e) => {
+      if(e.keyCode == 13) {
+        searchUser();
+      }
+    })
+    </script>
+  </body>
+</html>
