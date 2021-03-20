@@ -77,10 +77,12 @@ io.on('connection',(socket)=>{
 
 	socket.on('join-room',(data) => {
 		socket.join(data.room)
+		console.log('joined in room: ',data.room);
 	})
 	socket.on('send message',(data) => {
 		var sendToRoom = data.receiver + data.e;
 		var tmp = data;
+		//console.log('sending to room: ',sendToRoom);
 		Chat.find({room: sendToRoom},(err,results) => {
 			if(err) {
 				throw err;
@@ -95,20 +97,47 @@ io.on('connection',(socket)=>{
 						receiver: data.receiver,
 						k: data.k
 					});
-					results[0].save()
+					//results[0].save()
 					var i = 0;
 					if(results[0].header.length == 0) {
 						results[0].header.push({val:false,sender:data.sender});
 						results[0].save()
 						tmp.header = false;
+						//console.log('just before sending... ',sendToRoom);
 						socket.to(sendToRoom).emit('receive message',tmp);
+						//console.log('yahase send');
 					}
 					else {
+						console.log('inside else as header length is not 0');
+						console.log(results[0].header);
 						for(i=0;i<results[0].header.length;i++) {
 							if(results[0].header[i].sender == data.sender) {
 								tmp.header = results[0].header[i].val;
+								//console.log('just before sending... ',sendToRoom);
 								socket.to(sendToRoom).emit('receive message',tmp);
+								//console.log('or yahase send..');
+								break;
 							}
+						}
+						console.log('value of i = ',i);
+						if(i == results[0].header.length) {
+							results[0].header.push({
+								val: false,
+								sender: data.sender
+							});
+							results[0].save((err,results) => {
+								if(err) {
+									console.log('error: ',err);
+								}
+								else {
+									console.log('pushed val = ',false,' and sender = ',data.sender,' and saved');
+									tmp.header = false;
+									socket.to(sendToRoom).emit('receive message',tmp);
+								}
+							})
+						}
+						else {
+							results[0].save()
 						}
 					}
 				}
@@ -126,7 +155,9 @@ io.on('connection',(socket)=>{
 					chat.header.push({val: false, sender: data.sender})
 					chat.save()
 					tmp.header = false;
+					//console.log('just before sending... ',sendToRoom);
 					socket.to(sendToRoom).emit('receive message',tmp);
+					//console.log('or finally yahase');
 				}
 			}
 		}) //chat find for sendToRoom gets over here..
@@ -135,6 +166,7 @@ io.on('connection',(socket)=>{
 				throw err;
 			}
 			else {
+				console.log('inside down');
 				if(results.length !== 0) {
 					var time = new Date();
 					results[0].messages.push({
@@ -144,7 +176,28 @@ io.on('connection',(socket)=>{
 						receiver: data.receiver,
 						k: data.k
 					});
-					results[0].save();
+					var i = 0;
+					var flag = 0;
+					for(i=0;i<results[0].header.length;i++) {
+						if(results[0].header[i].sender == data.sender) {
+							flag = 1;
+							break;
+						}
+					}
+					if(i == results[0].header.length) {
+						results[0].header.push({
+							val: false,
+							sender: data.sender
+						})
+					}
+					results[0].save((err,results) => {
+						if(err) {
+							throw err;
+						}
+						else {
+							console.log('saved!! \n');
+						}
+					});
 				}
 				else {
 					var time = new Date();
@@ -158,7 +211,14 @@ io.on('connection',(socket)=>{
 						k: data.k
 					});
 					chat.header.push({val: false, sender: data.sender})
-					chat.save();
+					chat.save((err,results) => {
+						if(err) {
+							throw err;
+						}
+						else {
+							console.log('saved neeche bhi!');
+						}
+					});
 				}
 			}
 		})
@@ -167,6 +227,7 @@ io.on('connection',(socket)=>{
 	socket.on('accept-header',(data) => {
 		console.log('in here....');
 		var sendToRoom = data.receiver + data.e;
+		console.log('sendToRoom: ',sendToRoom);
 		Chat.find({room: sendToRoom},(err,results) => {
 			if(err) {
 				throw err;
@@ -174,6 +235,7 @@ io.on('connection',(socket)=>{
 			else {
 				console.log('results in here..',results);
 				console.log('and the header: ',results[0].header);
+				console.log('and the data.receiver: ',data.receiver);
 				var i = 0;
 				for(i=0;i<results[0].header.length;i++) {
 					if(results[0].header[i].sender == data.receiver) {
@@ -183,6 +245,7 @@ io.on('connection',(socket)=>{
 						break;
 					}
 				}
+				console.log('value of i = ',i);
 			}
 		})
 		Chat.find({room: data.room},(err,results) => {
@@ -212,6 +275,18 @@ io.on('connection',(socket)=>{
 				socket.emit('receive all chats',results);
 			}
 		})
+	})
+
+
+	socket.on('typing',(data) => {
+		var sendToRoom = data.receiver + data.e;
+		console.log('sending the typing to room: ',sendToRoom);
+		socket.to(sendToRoom).emit('typing',data);
+	})
+
+	socket.on('stop typing',(data) => {
+		var sendToRoom = data.receiver + data.e;
+		socket.to(sendToRoom).emit('stop typing',data);
 	})
 
 })
@@ -356,6 +431,27 @@ app.post('/logout', (req, res) => {
   res.redirect('/login')
 })
 
+
+
+app.post('/getAllHOME',(req,res) => {
+	if(req.isAuthenticated()) {
+		Chat.find({},(err,results) => {
+			if(err) {
+				throw err;
+			}
+			else {
+				res.json(results)
+			}
+		})
+	}
+	else {
+		res.redirect('/login')
+	}
+})
+
+
+
+
 function checkAuthenticated(req, res, next) {
   if (req.isAuthenticated()) {
     return next()
@@ -430,140 +526,3 @@ async function findRoom(receiver,key,email) {
 http.listen(8090,()=> {
   console.log('listening on 8090');
 })
-
-
-
-//wastage..
-/*
-socket.on('req-header',(data) => {
-	var room = data.receiver + data.e
-	if(data.val == 'yes') {
-		Chat.find({room: data.room},(err,results) => {
-			if(err) {
-				throw err;
-			}
-			else {
-				results[0].header.push({
-					val: true,
-					receiver: data.receiver
-				})
-				results[0].save((err,results) => {
-					if(err) {
-						throw err;
-					}
-					else {
-						console.log('saved header');
-					}
-				})
-			}
-		})
-
-	}
-})
-
-socket.on('join-room',(data) => {
-	socket.join(data.room)
-	console.log('socket joined on room: ',data.room);
-})
-
-socket.on('send message',(data)=> {
-	var room = data.receiver + data.e
-	console.log('sending message to room: ',room);
-
-	Chat.find({room:data.room},(err,results) => {
-		if(err) {
-			throw err;
-		}
-		else {
-			console.log('results:: ',results);
-			if(results.length == 0) {
-				var chatRoom = new chat();
-				chatRoom.room = data.room;
-				chatRoom.messages.push(data.message);
-				chatRoom.header = false;
-				chatRoom.save((err) => {
-					if(err) {
-						throw err;
-					}
-					else {
-						socket.to(room).emit('receive message',{
-							message: data.message,
-							header: 'nHAAap',
-							sender: data.sender,
-							receiver: data.receiver,
-							k: data.k,
-							yourE: data.yourE
-						});
-						console.log('saved chat!');
-					}
-				})
-			}
-			else {
-				if(results[0].header.length == 0) {
-					results[0].messages.push({
-						time: new Date(),
-						message: data.message,
-						sender: data.sender,
-						receiver: data.receiver
-					});
-					results[0].save((err) => {
-						if(err) {
-							throw err;
-						}
-						else {
-							console.log('saved chat!');
-							if(results[0].header) {
-								socket.to(room).emit('receive message',{
-									message: data.message,
-									header: 'laAn',
-									sender: data.sender,
-									receiver: data.receiver,
-									k: data.k,
-									yourE: data.yourE
-								});
-							}
-							else {
-								socket.to(room).emit('receive message',{
-									message: data.message,
-									header: 'nHAAap',
-									sender: data.sender,
-									receiver: data.receiver,
-									k: data.k,
-									yourE: data.yourE
-								});
-							}
-						}
-					})
-				}
-				else {
-					var i = 0;
-					for(i=0;i<results[0].header.length;i++) {
-						if(results[0].header[i].receiver == data.receiver) {
-							if(results[0].header[i].val == true) {
-								socket.to(room).emit('receive message',{
-									message: data.message,
-									header: 'laAn',
-									sender: data.sender,
-									receiver: data.receiver,
-									k: data.k,
-									yourE: data.yourE
-								});
-							}
-							else {
-								socket.to(room).emit('receive message',{
-									message: data.message,
-									header: 'nHAAap',
-									sender: data.sender,
-									receiver: data.receiver,
-									k: data.k,
-									yourE: data.yourE
-								});
-							}
-						}
-					}
-				}
-			}
-		}
-	})
-})
-*/
