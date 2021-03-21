@@ -9,6 +9,22 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" integrity="sha512-iBBXm8fW90+nuLcSKlbmrPcLa0OT92xO1BIsZ+ywDWZCvqsWgccV3gFoRBv0z+8dLJgyAHIhR35VZc2oM/gI1w==" crossorigin="anonymous" />
   </head>
   <style media="screen">
+
+  *::-webkit-scrollbar {
+    width: 6px;               /* width of the entire scrollbar */
+  }
+
+  *::-webkit-scrollbar-track {
+    //background: #9ACD32;        /* color of the tracking area */
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: gray;    /* color of the scroll thumb */
+    border-radius: 20px;       /* roundness of the scroll thumb */
+    //border: 1px solid #9ACD32;  /* creates padding around scroll thumb */
+  }
+
+
     .chatBox {
       min-width: 20%;
       min-height: 10%;
@@ -17,14 +33,21 @@
       color: white;
 
     }
+    .display-whole-chat{
+      background: url(https://wallpaperaccess.com/full/1288076.jpg);
+      background-repeat: repeat;
+    }
     .display-whole-chat {
-      float: left;
+      margin-left: 5em;
       width: 80%;
+      margin-top: 2em;
       height: 32em;
       text-align: center;
       padding: 1em;
+      scroll-behavior: auto;
       overflow-y: auto;
-      margin-right: 20em;
+      scrollbar-width: thin;          /* "auto" or "thin" */
+      scrollbar-color: green #9ACD32;
     }
     .receiveDiv {
       width: 80%;
@@ -36,6 +59,7 @@
       text-align: right;
       background-color: grey;
       opacity: 0.8;
+      color: white;
     }
     .senderDiv {
       width: 80%;
@@ -46,7 +70,8 @@
       float: left;
       text-align: left;
       background-color: green;
-      opacity: 0.9
+      opacity: 0.9;
+      color: white;
     }
     #chatmessage {
       width: 70%;
@@ -70,7 +95,38 @@
       display: inline-block;
       float: left;
       text-align: left;
-      opacity: 0.9
+      opacity: 0.9;
+      color: white;
+    }
+    .seenDiv {
+      width: 80%;
+      min-height: 4em;
+      margin: 1em;
+      padding: 1em;
+      display: inline-block;
+      float: right;
+      text-align: right;
+      opacity: 0.9;
+      color: white;
+    }
+    body {
+      //background-image: linear-gradient(to right, green, #9ACD32);
+      background-color: #b1bfd8;
+      background-image: linear-gradient(315deg, #b1bfd8 0%, #6782b4 74%);
+      font-size: 1.2em;
+    }
+    #popup {
+      position:fixed;
+      top: 50%;
+      left: 50%;
+      width:30em;
+      height:8em;
+      margin-top: -9em; /*set to a negative number 1/2 of your height*/
+      margin-left: -15em; /*set to a negative number 1/2 of your width*/
+      border: 1px solid #ccc;
+      background-color: #f3f3f3;
+      text-align: center;
+      padding: 1em;
     }
   </style>
   <body>
@@ -108,6 +164,10 @@
           senderE: '<%= email %>'
         })
 
+        if($('.seenDiv').length) {
+          var seenDiv = document.getElementsByClassName('seenDiv')[0];
+          seenDiv.parentNode.removeChild(seenDiv);
+        }
 
         var chatmessage = document.getElementById('chatmessage');
         chatmessage = chatmessage.value;
@@ -131,7 +191,7 @@
           var d = new Date(dataReceived[0].messages[i].time);
           d = d.toDateString()
           console.log('d: ',d);*/
-          receiveDiv.innerHTML = chatmessage + ' <br><small> '+new Date().toDateString()+'</small>';
+          receiveDiv.innerHTML = chatmessage +  '<br><br><small style="text-align: left"> '+ new Date().toString().split(' ')[4] + ' ' +new Date().toDateString()+'</small>';
           displayWholeChat.appendChild(receiveDiv);
           displayWholeChat.scrollTop = displayWholeChat.scrollHeight;
           document.getElementById('chatmessage').value = ''
@@ -157,9 +217,20 @@
           var d = new Date();
           d = d.toDateString()
           console.log('d: ',d);
-          senderDiv.innerHTML = CryptoJS.AES.decrypt(data.message,data.k).toString(CryptoJS.enc.Utf8) + ' <br><small> '+d+'</small>';
+          senderDiv.innerHTML = CryptoJS.AES.decrypt(data.message,data.k).toString(CryptoJS.enc.Utf8) + ' <br><small> '+new Date().toString().split(' ')[4] +' '+d+'</small>';
           displayWholeChat.appendChild(senderDiv)
           displayWholeChat.scrollTop = displayWholeChat.scrollHeight;
+          socket.emit('read all',{
+            receiver: u,
+            e: CryptoJS.AES.decrypt(e,CryptoJS.AES.decrypt(k,'<%= email %>').toString(CryptoJS.enc.Utf8)).toString(CryptoJS.enc.Utf8),
+            sender: '<%= name %>',
+            senderE: '<%= email %>',
+            room: '<%= room %>'
+          })
+          if($('.seenDiv').length) {
+            var seenDiv = document.getElementsByClassName('seenDiv')[0];
+            seenDiv.parentNode.removeChild(seenDiv);
+          }
         }
         else {
           if(valOfrdaio == 'yes') {
@@ -168,19 +239,17 @@
           }
           else {
             var popup = document.createElement('div');
-            popup.style.backgroundColor = 'black';
-            popup.style.color = 'white';
-            popup.style.width = '5em'
-            popup.style.height = '5em';
             popup.setAttribute('id','popup');
-            popup.innerHTML = `Confirm the req? <br><input type="radio" value="yes" name="confirmReq" id="yes"> <label for='yes'>Yes</label> <br><input type="radio" value="No" name="confirmReq" id="No"> <label for='No'>No</label><input type='submit' onclick='callMe();' value='send response to req' id= 'sendReq'> `
+            popup.innerHTML = `Confirm the req by <br><b>`+data.sender+`</b> <br><input type="radio" value="yes" name="confirmReq" id="yes"> <label for='yes'>Yes</label> <br><input type="radio" value="No" name="confirmReq" id="No"> <label for='No'>No</label> <br> <input type='submit' onclick='callMe();' value='send response to req' id= 'sendReq'> `
             document.body.appendChild(popup);
+            document.body.style.opacity = '0.5';
+            document.body.getElementById('popup').style.opacity = '1';
           }
         }
       })
       function callMe() {
         valOfrdaio = $("input[type='radio'][name='confirmReq']:checked").val();
-        alert('sending accept-header: '+valOfrdaio)
+        //alert('sending accept-header: '+valOfrdaio)
         if(valOfrdaio == 'yes') {
           socket.emit('accept-header',{
             val: 'yes',
@@ -196,9 +265,13 @@
         var displayWholeChat = document.getElementsByClassName('display-whole-chat')[0];
         var senderDiv = document.createElement('div');
         senderDiv.setAttribute('class','senderDiv');
-        senderDiv.innerHTML = CryptoJS.AES.decrypt(data.message,data.k).toString(CryptoJS.enc.Utf8) + ' <br><small> '+d+'</small>';
+        senderDiv.innerHTML = CryptoJS.AES.decrypt(recievedData.message,recievedData.k).toString(CryptoJS.enc.Utf8) + ' <br><small> '+new Date().toString().split(' ')[4] +' '+d+'</small>';
         displayWholeChat.appendChild(senderDiv)
         displayWholeChat.scrollTop = displayWholeChat.scrollHeight;
+        if($('#popup').length) {
+          var p = document.getElementById('popup');
+          p.parentNode.removeChild(p);
+        }
       }
 
 
@@ -213,33 +286,43 @@
         //var element = document.getElementById('chatlogs');
         //chatBox.scrollTop = chatBox.scrollHeight;
         let dataReceived = data;
-        var displayWholeChat = document.getElementsByClassName('display-whole-chat')[0];
-        for(i=0;i<data[0].messages.length;i++) {
-          if(data[0].messages[i].receiver == u || data[0].messages[i].sender == u) {
-            if(data[0].messages[i].sender == '<%= name %>') {
-              //chatBox.innerHTML += '<br><span style="float:right">'+CryptoJS.AES.decrypt(data[0].messages[i].message,data[0].messages[i].k).toString(CryptoJS.enc.Utf8)+'</span> <br>';
-              var receiveDiv = document.createElement('div');
-              receiveDiv.setAttribute('class','receiveDiv');
-              console.log(dataReceived[0].messages[i].time);
-              var d = new Date(dataReceived[0].messages[i].time);
-              d = d.toDateString()
-              console.log('d: ',d);
-              receiveDiv.innerHTML = CryptoJS.AES.decrypt(dataReceived[0].messages[i].message,dataReceived[0].messages[i].k).toString(CryptoJS.enc.Utf8) + ' <br><small> '+d+'</small>';
-              displayWholeChat.appendChild(receiveDiv);
-            }
-            else {
-              //chatBox.innerHTML += '<br><span style="float:left">'+CryptoJS.AES.decrypt(data[0].messages[i].message,data[0].messages[i].k).toString(CryptoJS.enc.Utf8)+'</span> <br>';
-              var senderDiv = document.createElement('div');
-              senderDiv.setAttribute('class','senderDiv');
-              var d = new Date(dataReceived[0].messages[i].time);
-              d = d.toDateString()
-              console.log('d: ',d);
-              senderDiv.innerHTML = CryptoJS.AES.decrypt(dataReceived[0].messages[i].message,dataReceived[0].messages[i].k).toString(CryptoJS.enc.Utf8) + ' <br><small> '+d+'</small>';
-              displayWholeChat.appendChild(senderDiv)
+        var j = 0;
+        for(j=0;j<data[0].header.length;j++) {
+          if(data[0].header[j].sender == u) {
+            if(data[0].header[j].val == true) {
+              var displayWholeChat = document.getElementsByClassName('display-whole-chat')[0];
+              i = 0;
+              for(i=0;i<data[0].messages.length;i++) {
+                if(data[0].messages[i].receiver == u || data[0].messages[i].sender == u) {
+                  if(data[0].messages[i].sender == '<%= name %>') {
+                    //chatBox.innerHTML += '<br><span style="float:right">'+CryptoJS.AES.decrypt(data[0].messages[i].message,data[0].messages[i].k).toString(CryptoJS.enc.Utf8)+'</span> <br>';
+                    var receiveDiv = document.createElement('div');
+                    receiveDiv.setAttribute('class','receiveDiv');
+                    console.log(dataReceived[0].messages[i].time);
+                    var d = new Date(dataReceived[0].messages[i].time);
+                    d = d.toDateString()
+                    console.log('d: ',d);
+                    receiveDiv.innerHTML = CryptoJS.AES.decrypt(dataReceived[0].messages[i].message,dataReceived[0].messages[i].k).toString(CryptoJS.enc.Utf8) + '<br><br><div style="text-align: right"><small style="text-align: left"> '+  new Date(dataReceived[0].messages[i].time).toString().split(' ')[4] + ' '+  d+'</small></div>';
+                    displayWholeChat.appendChild(receiveDiv);
+                  }
+                  else {
+                    //chatBox.innerHTML += '<br><span style="float:left">'+CryptoJS.AES.decrypt(data[0].messages[i].message,data[0].messages[i].k).toString(CryptoJS.enc.Utf8)+'</span> <br>';
+                    var senderDiv = document.createElement('div');
+                    senderDiv.setAttribute('class','senderDiv');
+                    var d = new Date(dataReceived[0].messages[i].time);
+                    d = d.toDateString()
+                    console.log('d: ',d);
+                    senderDiv.innerHTML = '<b><big>'+ dataReceived[0].messages[i].sender +'</big></b> <br>'+ CryptoJS.AES.decrypt(dataReceived[0].messages[i].message,dataReceived[0].messages[i].k).toString(CryptoJS.enc.Utf8) + '<br><br><div style="text-align: right"><small style="text-align: left"> '+  new Date(dataReceived[0].messages[i].time).toString().split(' ')[4] + ' '+d+'</small></div>';
+                    displayWholeChat.appendChild(senderDiv)
+                  }
+                }
+              }
+              displayWholeChat.scrollTop = displayWholeChat.scrollHeight;
+              break;
             }
           }
         }
-        displayWholeChat.scrollTop = displayWholeChat.scrollHeight;
+
       })
 
       function typing() {
@@ -265,6 +348,10 @@
               return;
             }
             else {
+              if($('.seenDiv').length) {
+                var seenDiv = document.getElementsByClassName('seenDiv')[0];
+                seenDiv.parentNode.removeChild(seenDiv);
+              }
               var displayWholeChat = document.getElementsByClassName('display-whole-chat')[0];
               var typingDiv = document.createElement('div');
               typingDiv.setAttribute('class','typingDiv');
@@ -289,6 +376,45 @@
           }
         }
       })
+      function stopTyping() {
+        socket.emit('stop typing',{
+          receiver: u,
+          e: CryptoJS.AES.decrypt(e,CryptoJS.AES.decrypt(k,'<%= email %>').toString(CryptoJS.enc.Utf8)).toString(CryptoJS.enc.Utf8),
+          sender: '<%= name %>',
+          senderE: '<%= email %>'
+        })
+      }
+      socket.emit('read all',{
+        receiver: u,
+        e: CryptoJS.AES.decrypt(e,CryptoJS.AES.decrypt(k,'<%= email %>').toString(CryptoJS.enc.Utf8)).toString(CryptoJS.enc.Utf8),
+        sender: '<%= name %>',
+        senderE: '<%= email %>',
+        room: '<%= room %>'
+      })
+
+      socket.on('read',(data) => {
+        //alert('read by: '+data.sender+' or also called as u: '+u);
+        if(data.sender == u) {
+
+
+          if($('.seenDiv').length) {
+            return;
+          }
+
+          var seenDiv = document.createElement('div');
+          var displayWholeChat = document.getElementsByClassName('display-whole-chat')[0];
+          seenDiv.setAttribute('class','seenDiv');
+          seenDiv.innerHTML = data.sender + ' has seen...'
+          displayWholeChat.appendChild(seenDiv)
+          displayWholeChat.scrollTop = displayWholeChat.scrollHeight;
+          if($('.typingDiv').length) {
+            //console.log('it exists');
+            var typingDiv = document.getElementsByClassName('typingDiv')[0];
+            typingDiv.parentNode.removeChild(typingDiv);
+          }
+        }
+      })
+
 
     </script>
     <!--<button type="button" onclick="sendMessage();" name="button">send</button>-->
@@ -296,7 +422,7 @@
     </div>
     <div class="display-whole-chat">
     </div>
-    <center><input type="text" id="chatmessage" onkeyup="typing();" placeholder="type text to send" name="chatmessage" value=""></center>
+    <center><input type="text" id="chatmessage" onkeydown="typing();"  placeholder="type text to send" name="chatmessage" value=""></center>
     <script type="text/javascript">
     document.getElementById('chatmessage').addEventListener('keyup',(e) => {
       if(e.keyCode == 13) {
@@ -306,3 +432,4 @@
     </script>
   </body>
 </html>
+l>

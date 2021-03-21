@@ -289,6 +289,35 @@ io.on('connection',(socket)=>{
 		socket.to(sendToRoom).emit('stop typing',data);
 	})
 
+	socket.on('read all',(data) => {
+		var sendToRoom = data.receiver + data.e;
+		console.log('sending read all to room: ',sendToRoom);
+		console.log('read all by: ',data.sender);
+		Chat.find({room: sendToRoom},(err,results) => {
+			if(err) {
+				throw err;
+			}
+			else {
+				if(results.length == 0) {
+					return;
+				}
+				else {
+					results[0].userUnread = true;
+					results[0].save((err,results)=> {
+						if(err) {
+							throw err;
+						}
+						else {
+							console.log('saved read all by: ',data.sender);
+							socket.to(sendToRoom).emit('read',data);
+							console.log('sending read all to room: ',sendToRoom);
+						}
+					});
+				}
+			}
+		})
+	})
+
 })
 
 
@@ -350,6 +379,11 @@ app.get('/style',(req,res) => {
 app.get('/register-js',(req,res) => {
   res.sendFile(path.join(__dirname,'/public/js/register-js.js'))
 })
+
+app.get('/home_scss',(req,res) => {
+	res.sendFile(path.join(__dirname,'/public/css/home.scss'))
+})
+
 
 app.get('/user',(req,res) => {
 	if(req.isAuthenticated()) {

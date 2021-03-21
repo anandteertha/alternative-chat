@@ -1,0 +1,23 @@
+.b {
+background-color: #b1bfd8;
+  width: 180px;
+  padding: 4px 0;
+  transform: translateX(-50%) translateY(-50%);
+  border-radius: 3px;
+
+  &:hover {
+    cursor: pointer;
+  }
+
+  &:after {
+    content: "";
+    display: block;
+    position: absolute;
+    width: 100%;
+    height: 10%;
+    border-radius: 50%;
+    background-color: darken(#f1c40f, 20%);
+    opacity: 0.4;
+    bottom: -30px;
+  }
+}
